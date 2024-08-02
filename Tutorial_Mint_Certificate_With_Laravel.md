@@ -1,22 +1,16 @@
+Berikut adalah versi terbaru dari tutorial lengkap untuk menjalankan fungsi `mintCertificate` di smart contract dari aplikasi Laravel PHP menggunakan library `web3p/web3.php`.
+
 ### Tutorial Lengkap: Menjalankan Fungsi `mintCertificate` di Smart Contract dari Laravel PHP
 
-Tutorial ini akan memandu Anda melalui langkah-langkah untuk menghubungkan aplikasi Laravel Anda ke jaringan Ethereum testnet `TestEdge-2` dari HAQQ dan mengeksekusi fungsi `mintCertificate` di smart contract. Kita akan menggunakan library `web3.php`.
+Tutorial ini akan memandu Anda melalui langkah-langkah untuk menghubungkan aplikasi Laravel Anda ke jaringan Ethereum testnet `TestEdge-2` dari HAQQ dan mengeksekusi fungsi `mintCertificate` di smart contract. Kita akan menggunakan library `web3p/web3.php`.
 
-### Langkah 1: Instalasi Laravel dan Library `web3.php`
+### Langkah 1: Instalasi Laravel dan Library `web3p/web3.php`
 
-1. **Instal Laravel**:
-    Jika Anda belum memiliki Laravel terinstal, instal Laravel terlebih dahulu:
-
-    ```bash
-    composer create-project --prefer-dist laravel/laravel your_project_name
-    cd your_project_name
-    ```
-
-2. **Instal `web3.php`**:
-    Instal library `web3.php` untuk menghubungkan Laravel ke Ethereum node:
+1. **Instal `web3p/web3.php`**:
+    Instal library `web3p/web3.php` untuk menghubungkan Laravel ke Ethereum node:
 
     ```bash
-    composer require sc0vu/web3.php
+    composer require web3p/web3.php
     ```
 
 ### Langkah 2: Konfigurasi Ethereum Node
@@ -58,8 +52,9 @@ Buat service class untuk mengelola interaksi dengan smart contract.
 
         public function __construct()
         {
-            $this->web3 = new Web3(env('ETHEREUM_NODE_URL'));
-            $this->contract = new Contract($this->web3->provider, file_get_contents(storage_path('app/CertificateNFTABI.json')));
+            $provider = new \Web3\Providers\HttpProvider(env('ETHEREUM_NODE_URL'));
+            $this->web3 = new Web3($provider);
+            $this->contract = new Contract($provider, file_get_contents(storage_path('app/CertificateNFTABI.json')));
             $this->eth = $this->web3->eth;
         }
 
