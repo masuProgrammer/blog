@@ -37,66 +37,74 @@ Buat service class untuk mengelola interaksi dengan smart contract.
     ```php
     <?php
 
-    namespace App\Services;
+namespace App\Services;
 
-    use Web3\Web3;
-    use Web3\Contract;
-    use Web3\Utils;
-    use Illuminate\Support\Facades\Log;
+use Web3\Web3;
+use Web3\Contract;
+use Web3\Utils;
+use phpseclib\Math\BigInteger;
+use Illuminate\Support\Facades\Log;
 
-    class EthereumService
+class EthereumService
+{
+    protected $web3;
+    protected $contract;
+    protected $eth;
+
+    public function __construct()
     {
-        protected $web3;
-        protected $contract;
-        protected $eth;
+        $provider = new \Web3\Providers\HttpProvider(env('ETHEREUM_NODE_URL'));
+        $this->web3 = new Web3($provider);
+        $this->contract = new Contract($provider, file_get_contents(storage_path('app/CertificateNFTABI.json')));
+        $this->eth = $this->web3->eth;
+    }
 
-        public function __construct()
-        {
-            $provider = new \Web3\Providers\HttpProvider(env('ETHEREUM_NODE_URL'));
-            $this->web3 = new Web3($provider);
-            $this->contract = new Contract($provider, file_get_contents(storage_path('app/CertificateNFTABI.json')));
-            $this->eth = $this->web3->eth;
-        }
+    public function mintCertificate($to, $certificateType, $certificateName, $holderName, $issueDate, $imageUrl)
+    {
+        $contractAddress = env('CONTRACT_ADDRESS');
+        $privateKey = env('PRIVATE_KEY');
 
-        public function mintCertificate($to, $certificateType, $certificateName, $holderName, $issueDate, $imageUrl)
-        {
-            $contractAddress = env('CONTRACT_ADDRESS');
-            $privateKey = env('PRIVATE_KEY');
+        // Get the nonce
+        $this->eth->getTransactionCount('0xYourWalletAddress', 'pending', function ($err, $nonce) use ($contractAddress, $privateKey, $to, $certificateType, $certificateName, $holderName, $issueDate, $imageUrl) {
+            if ($err !== null) {
+                Log::error('Error getting nonce: ' . $err->getMessage());
+                return;
+            }
 
-            // Get the nonce
-            $this->eth->getTransactionCount('0xYourWalletAddress', 'pending', function ($err, $nonce) use ($contractAddress, $privateKey, $to, $certificateType, $certificateName, $holderName, $issueDate, $imageUrl) {
+            // Convert nonce to hex if it is an instance of BigInteger
+            if ($nonce instanceof BigInteger) {
+                $nonce = '0x' . $nonce->toHex();
+            } else {
+                $nonce = '0x' . dechex($nonce);
+            }
+
+            // Prepare data for mintCertificate function
+            $data = $this->contract->at($contractAddress)->getData('mintCertificate', $to, $certificateType, $certificateName, $holderName, $issueDate, $imageUrl);
+
+            // Create transaction
+            $transaction = [
+                'nonce' => $nonce,
+                'from' => '0xYourWalletAddress',
+                'to' => $contractAddress,
+                'gas' => '0x' . dechex(2000000),
+                'data' => $data
+            ];
+
+            // Sign transaction
+            $signedTransaction = Utils::signTransaction($transaction, $privateKey);
+
+            // Send transaction
+            $this->eth->sendRawTransaction('0x' . $signedTransaction, function ($err, $txHash) {
                 if ($err !== null) {
-                    Log::error('Error getting nonce: ' . $err->getMessage());
+                    Log::error('Error sending transaction: ' . $err->getMessage());
                     return;
                 }
 
-                // Prepare data for mintCertificate function
-                $data = $this->contract->at($contractAddress)->getData('mintCertificate', $to, $certificateType, $certificateName, $holderName, $issueDate, $imageUrl);
-
-                // Create transaction
-                $transaction = [
-                    'nonce' => '0x' . dechex($nonce),
-                    'from' => '0xYourWalletAddress',
-                    'to' => $contractAddress,
-                    'gas' => '0x' . dechex(2000000),
-                    'data' => $data
-                ];
-
-                // Sign transaction
-                $signedTransaction = Utils::signTransaction($transaction, $privateKey);
-
-                // Send transaction
-                $this->eth->sendRawTransaction('0x' . $signedTransaction, function ($err, $txHash) {
-                    if ($err !== null) {
-                        Log::error('Error sending transaction: ' . $err->getMessage());
-                        return;
-                    }
-
-                    Log::info('Transaction hash: ' . $txHash);
-                });
+                Log::info('Transaction hash: ' . $txHash);
             });
-        }
+        });
     }
+}
     ```
 
 ### Langkah 4: Buat Controller untuk Menjalankan Fungsi Mint
